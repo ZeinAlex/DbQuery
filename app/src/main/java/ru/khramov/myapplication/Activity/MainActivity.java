@@ -1,7 +1,7 @@
 package ru.khramov.myapplication.Activity;
 
-import android.content.Context;
 import android.database.Cursor;
+import android.database.SQLException;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.widget.Button;
@@ -38,9 +38,17 @@ public class MainActivity extends AppCompatActivity {
     private void initView() {
         textView = findViewById(R.id.textView);
         editText = findViewById(R.id.editText);
-        button = findViewById(R.id.button);
+        button = findViewById(R.id.btn_run);
         button.setOnClickListener(view -> {
             textView.setText(requestFromDb());
+        });
+        findViewById(R.id.btn_table).setOnClickListener(view -> {
+            Db.getInstance().beginTransaction();
+            Cursor cursor = Db.getInstance().selectSQL("select * from SQLITE_MASTER WHERE type = 'table'");
+            if (cursor != null) {
+                textView.setText(fillString(cursor));
+                cursor.close();
+            }
         });
     }
 
@@ -49,34 +57,40 @@ public class MainActivity extends AppCompatActivity {
         try {
             Db.getInstance().beginTransaction();
             if (!string.toString().startsWith("select")) {
-                Db.getInstance().execSQL(string.toString());
+                string.append(" \n").append(Db.getInstance().execSQL(string.toString()));
                 Db.getInstance().commitTransaction();
             } else {
                 Cursor cursor = Db.getInstance().selectSQL(string.toString());
                 if (cursor != null) {
-                    if (cursor.getCount() > 0) {
-                        cursor.moveToFirst();
-                        int columnCount = cursor.getColumnCount();
-                        string.append(":\n");
-                        string.append("\n");
-                        for (int i = 0; i < columnCount; i++) {
-                            string.append(cursor.getColumnName(i)).append("\t|\t");
-                        }
-                        string.append("\n");
-                        do {
-                            for (int i = 0; i < columnCount; i++) {
-                                string.append(cursor.getString(i)).append("\t|\t");
-                            }
-                            string.append("\n");
-                        } while (cursor.moveToNext());
-                    }
+                    fillString(cursor);
+                    string.append(fillString(cursor));
                     cursor.close();
                 }
             }
-        } catch (Exception e) {
+        } catch (SQLException e) {
             string = new StringBuilder(e.toString());
         } finally {
             Db.getInstance().endTransaction();
+        }
+        return string.toString();
+    }
+
+    private String fillString(Cursor cursor) {
+        StringBuilder string = new StringBuilder();
+        if (cursor.getCount() > 0) {
+            cursor.moveToFirst();
+            int columnCount = cursor.getColumnCount();
+            string.append(" :\n\n");
+            for (int i = 0; i < columnCount; i++) {
+                string.append(cursor.getColumnName(i)).append("\t|\t");
+            }
+            string.append("\n");
+            do {
+                for (int i = 0; i < columnCount; i++) {
+                    string.append(cursor.getString(i)).append("\t|\t");
+                }
+                string.append("\n");
+            } while (cursor.moveToNext());
         }
         return string.toString();
     }

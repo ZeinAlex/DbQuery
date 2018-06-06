@@ -7,12 +7,10 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteException;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.util.Log;
+
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
-
-import ru.khramov.myapplication.Activity.MainActivity;
 
 import static ru.khramov.myapplication.App.getAppContext;
 
@@ -24,34 +22,40 @@ public class Db extends SQLiteOpenHelper {
     private boolean isOtherDbAttached = false;
 
 
-    private void execSQL(SQLiteDatabase db, String sql, Object[] bindArgs) {
+    private String execSQL(SQLiteDatabase db, String sql, Object[] bindArgs) {
+        String status="";
         if (!this.haveOpenTransaction) {
             db.beginTransaction();
         }
         if (bindArgs == null) {
             try {
                 db.execSQL(sql);
+                status = "Success";
             } catch (SQLException ex) {
                 Log.e("Db.execSQL", ex.toString());
                 if (!this.haveOpenTransaction) {
                     db.endTransaction();
-                    return;
+                    return ex.toString();
                 }
-                return;
+                return ex.toString();
             } catch (Throwable th) {
                 if (!this.haveOpenTransaction) {
                     db.endTransaction();
                 }
             }
         } else {
-            db.execSQL(sql, bindArgs);
+            try {
+                db.execSQL(sql, bindArgs);
+                status = "Success";
+            } catch (SQLException e) {
+                status = e.toString();
+            }
         }
         if (!this.haveOpenTransaction) {
             db.setTransactionSuccessful();
-        }
-        if (!this.haveOpenTransaction) {
             db.endTransaction();
         }
+        return status;
     }
 
 
@@ -70,16 +74,6 @@ public class Db extends SQLiteOpenHelper {
         super(context, dbName, null, DATABASE_VERSION);
     }
 
-    public void vacuum() {
-        SQLiteDatabase db = this.getWritableDatabase();
-        try {
-            if (!db.inTransaction()) {
-                db.execSQL("vacuum");
-            }
-        } catch (Exception ex) {
-            Log.e("vacuum", ex.toString());
-        }
-    }
 
     public void onCreate(SQLiteDatabase db) {
     }
@@ -184,12 +178,12 @@ public class Db extends SQLiteOpenHelper {
         }
     }
 
-    public void execSQL(String sql) throws SQLException {
-        execSQL(getWritableDatabase(), sql, null);
+    public String execSQL(String sql) throws SQLException {
+        return execSQL(getWritableDatabase(), sql, null);
     }
 
-    public void execSQL(String sql, Object[] bindArgs) throws SQLException {
-        execSQL(getWritableDatabase(), sql, bindArgs);
+    public String execSQL(String sql, Object[] bindArgs) throws SQLException {
+        return execSQL(getWritableDatabase(), sql, bindArgs);
     }
 
     public void attathDb(String dbPath, String dbAlias) throws SQLException {
@@ -263,11 +257,11 @@ public class Db extends SQLiteOpenHelper {
         return getDataIntValue(" SELECT COUNT(1) FROM " + table, 0) == 0;
     }
 
-    public ArrayList<String> getDbTables(){
+    public ArrayList getDbTables() {
         ArrayList arrayList = new ArrayList();
         Cursor cursor = selectSQL("select name from SQLITE_MASTER WHERE type = 'table'");
-        if(cursor!=null){
-            if(cursor.getCount()>0){
+        if (cursor != null) {
+            if (cursor.getCount() > 0) {
                 arrayList.add(cursor.getString(0));
             }
             cursor.close();
